@@ -18,8 +18,4 @@
           android:icon="@android:drawable/ic_menu_search"
           android:title="@string/connect"
           android:showAsAction="ifRoom|withText" />
-    <item android:id="@+id/discoverable"
-          android:icon="@android:drawable/ic_menu_mylocation"
-          android:title="@string/discoverable"
-          android:showAsAction="ifRoom|withText" />
 </menu>
