@@ -28,10 +28,9 @@ public final class R {
         public static final int title_paired_devices=0x7f070003;
     }
     public static final class layout {
-        public static final int activity_main_h=0x7f030000;
-        public static final int activity_main_v=0x7f030001;
-        public static final int device_list=0x7f030002;
-        public static final int device_name=0x7f030003;
+        public static final int activity_main=0x7f030000;
+        public static final int device_list=0x7f030001;
+        public static final int device_name=0x7f030002;
     }
     public static final class menu {
         public static final int option_menu=0x7f060000;
