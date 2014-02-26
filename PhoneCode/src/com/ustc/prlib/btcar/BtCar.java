@@ -69,7 +69,25 @@ public class BtCar extends Activity {
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
-		setContentView(R.layout.activity_main);
+		if (this.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
+
+			// landscape
+			setContentView(R.layout.activity_main_l);
+			// 控制板1
+			imageView1 = (ImageView) findViewById(R.id.imageView1);
+			imageView1.setOnTouchListener(controlTouchListener1);
+			// 控制板2
+			imageView2 = (ImageView) findViewById(R.id.imageView2);
+			imageView2.setOnTouchListener(controlTouchListener2);
+
+		} else if (this.getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT) {
+			// portrait
+			setContentView(R.layout.activity_main_p);
+			// 当屏幕竖着时，只是用控制板1控制小车
+			// 控制板1
+			imageView1 = (ImageView) findViewById(R.id.imageView1);
+			imageView1.setOnTouchListener(controlTouchListener1);
+		}
 
 		// Get local Bluetooth adapter
 		mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -81,36 +99,101 @@ public class BtCar extends Activity {
 			return;
 		}
 
-		if (this.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
-			// Toast.makeText(context, "landscape", Toast.LENGTH_SHORT).show();
+	}
 
-			/*
-			 * // 隐藏状态栏和导航栏 View decorView = getWindow().getDecorView(); // Hide
-			 * both the navigation bar and the status bar. //
-			 * SYSTEM_UI_FLAG_FULLSCREEN is only available on Android 4.1 and //
-			 * higher, // but as a general rule, you should design your app to
-			 * hide the // status bar // whenever you hide the navigation bar.
-			 * int uiOptions = View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
-			 * View.SYSTEM_UI_FLAG_FULLSCREEN;
-			 * decorView.setSystemUiVisibility(uiOptions);
-			 */
+	@Override
+	public void onStart() {
+		super.onStart();
+		if (D)
+			Log.e(TAG, "++ ON START ++");
 
+		// If BT is not on, request that it be enabled.
+		// setup() will then be called during onActivityResult
+		if (!mBluetoothAdapter.isEnabled()) {
+			Intent enableIntent = new Intent(
+					BluetoothAdapter.ACTION_REQUEST_ENABLE);
+			startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
+			// Otherwise, setup the session
+		} else {
+			if (mBTService == null) {
+				// Initialize the BluetoothService to perform bluetooth
+				// connections
+				mBTService = new BluetoothService(this, mHandler);
+			}
+		}
+
+	}
+
+	@Override
+	public synchronized void onResume() {
+		super.onResume();
+		if (D)
+			Log.e(TAG, "+ ON RESUME +");
+
+		// Performing this check in onResume() covers the case in which BT was
+		// not enabled during onStart(), so we were paused to enable it...
+		// onResume() will be called when ACTION_REQUEST_ENABLE activity
+		// returns.
+		if (mBTService != null) {
+			// Only if the state is STATE_NONE, do we know that we haven't
+			// started already
+			if (mBTService.getState() == BluetoothService.STATE_NONE) {
+				// Start the Bluetooth services
+				mBTService.start();
+			}
+		}
+
+	}
+
+	@Override
+	public synchronized void onPause() {
+		super.onPause();
+		if (D)
+			Log.e(TAG, "- ON PAUSE -");
+	}
+
+	@Override
+	public void onStop() {
+		super.onStop();
+		if (D)
+			Log.e(TAG, "-- ON STOP --");
+	}
+
+	@Override
+	public void onDestroy() {
+		super.onDestroy();
+		if (D)
+			Log.e(TAG, "--- ON DESTROY ---");
+		// Stop the Bluetooth services
+		if (mBTService != null)
+			mBTService.stop();
+
+	}
+
+	@Override
+	public void onConfigurationChanged(Configuration newConfig) {
+		super.onConfigurationChanged(newConfig);
+
+		// Checks the orientation of the screen
+		if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+
+			// Toast.makeText(this, "landscape", Toast.LENGTH_SHORT).show();
+			setContentView(R.layout.activity_main_l);
 			// 控制板1
 			imageView1 = (ImageView) findViewById(R.id.imageView1);
 			imageView1.setOnTouchListener(controlTouchListener1);
 			// 控制板2
 			imageView2 = (ImageView) findViewById(R.id.imageView2);
 			imageView2.setOnTouchListener(controlTouchListener2);
+		} else if (newConfig.orientation == Configuration.ORIENTATION_PORTRAIT) {
 
-		} else if (this.getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT) {
-			// Toast.makeText(context, "portrait", Toast.LENGTH_SHORT).show();
-
+			// Toast.makeText(this, "portrait", Toast.LENGTH_SHORT).show();
+			setContentView(R.layout.activity_main_p);
 			// 当屏幕竖着时，只是用控制板1控制小车
 			// 控制板1
 			imageView1 = (ImageView) findViewById(R.id.imageView1);
 			imageView1.setOnTouchListener(controlTouchListener1);
 		}
-
 	}
 
 	// 监听控制板1
@@ -133,7 +216,7 @@ public class BtCar extends Activity {
 				break;
 			// 触摸并移动时刻
 			case MotionEvent.ACTION_MOVE:
-				//Log.d(TAG, " x1:" + x + " y1:" + y);
+				// Log.d(TAG, " x1:" + x + " y1:" + y);
 				synchronized (this) {
 					touchPoint1.x = x;
 					touchPoint1.y = y;
@@ -172,7 +255,7 @@ public class BtCar extends Activity {
 				break;
 			// 触摸并移动时刻
 			case MotionEvent.ACTION_MOVE:
-				//Log.d(TAG, " x2:" + x + " y2:" + y);
+				// Log.d(TAG, " x2:" + x + " y2:" + y);
 				synchronized (this) {
 					touchPoint2.x = x;
 					touchPoint2.y = y;
@@ -190,66 +273,6 @@ public class BtCar extends Activity {
 			return true;
 		}
 	};
-
-	@Override
-	public void onStart() {
-		super.onStart();
-		if (D)
-			Log.e(TAG, "++ ON START ++");
-
-		// If BT is not on, request that it be enabled.
-		// setup() will then be called during onActivityResult
-		if (!mBluetoothAdapter.isEnabled()) {
-			Intent enableIntent = new Intent(
-					BluetoothAdapter.ACTION_REQUEST_ENABLE);
-			startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
-			// Otherwise, setup the session
-		} else {
-			if (mBTService == null) {
-				// Initialize the BluetoothService to perform bluetooth
-				// connections
-				mBTService = new BluetoothService(this, mHandler);
-			}
-		}
-
-	}
-
-	@Override
-	public synchronized void onPause() {
-		super.onPause();
-		if (D)
-			Log.e(TAG, "- ON PAUSE -");
-	}
-
-	@Override
-	public void onStop() {
-		super.onStop();
-		if (D)
-			Log.e(TAG, "-- ON STOP --");
-	}
-
-	@Override
-	public void onDestroy() {
-		super.onDestroy();
-		if (D)
-			Log.e(TAG, "--- ON DESTROY ---");
-		// Stop the Bluetooth services
-		if (mBTService != null)
-			mBTService.stop();
-
-	}
-
-	private void ensureDiscoverable() {
-		if (D)
-			Log.d(TAG, "ensure discoverable");
-		if (mBluetoothAdapter.getScanMode() != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
-			Intent discoverableIntent = new Intent(
-					BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-			discoverableIntent.putExtra(
-					BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
-			startActivity(discoverableIntent);
-		}
-	}
 
 	private void sendControlSignal(byte[] command) {
 		// Check that we're actually connected before trying anything
@@ -294,20 +317,28 @@ public class BtCar extends Activity {
 
 				if (context.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
 
-					commandBuffer[1] = (byte) controller.calculateV(imageView1,
-							x1, y1);
-					commandBuffer[2] = (byte) controller.calculateR(imageView2,
-							x2, y2);
+					if (imageView1 != null && imageView2 != null) {
+						commandBuffer[1] = (byte) controller.calculateV(
+								imageView1.getHeight(), imageView1.getWidth(),
+								x1, y1);
+						commandBuffer[2] = (byte) controller.calculateR(
+								imageView2.getHeight(), imageView2.getWidth(),
+								x2, y2);
+					}
 
 				} else if (context.getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT) {
+					if (imageView1 != null) {
+						int[] result = controller.CalcuteVAndR(
+								imageView1.getHeight(), imageView1.getWidth(),
+								x1, y1);
+						commandBuffer[1] = (byte) result[0];
+						commandBuffer[2] = (byte) result[1];
+					}
 
-					int[] result = controller.CalcuteVAndR(imageView1, x1, y1);
-					commandBuffer[1] = (byte) result[0];
-					commandBuffer[2] = (byte) result[1];
 				}
 
-				Log.d(TAG, "speed:" + commandBuffer[1] + " direction:"
-						+ commandBuffer[2]);
+				// Log.d(TAG, "speed:" + commandBuffer[1] + " direction:"
+				// + commandBuffer[2]);
 
 				// send the command through bluetooth
 				sendControlSignal(commandBuffer);
@@ -320,27 +351,6 @@ public class BtCar extends Activity {
 				}
 			}
 		}
-	}
-
-	@Override
-	public synchronized void onResume() {
-		super.onResume();
-		if (D)
-			Log.e(TAG, "+ ON RESUME +");
-
-		// Performing this check in onResume() covers the case in which BT was
-		// not enabled during onStart(), so we were paused to enable it...
-		// onResume() will be called when ACTION_REQUEST_ENABLE activity
-		// returns.
-		if (mBTService != null) {
-			// Only if the state is STATE_NONE, do we know that we haven't
-			// started already
-			if (mBTService.getState() == BluetoothService.STATE_NONE) {
-				// Start the Bluetooth services
-				mBTService.start();
-			}
-		}
-
 	}
 
 	private final void setStatus(int resId) {
@@ -400,9 +410,9 @@ public class BtCar extends Activity {
 			case MESSAGE_DEVICE_NAME:
 				// save the connected device's name
 				mConnectedDeviceName = msg.getData().getString(DEVICE_NAME);
-				Toast.makeText(getApplicationContext(),
-						"Connected to " + mConnectedDeviceName,
-						Toast.LENGTH_SHORT).show();
+				/*Toast.makeText(getApplicationContext(),
+						"连接到" + mConnectedDeviceName,
+						Toast.LENGTH_SHORT).show();*/
 				break;
 			case MESSAGE_TOAST:
 				Toast.makeText(getApplicationContext(),
