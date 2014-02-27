@@ -1,6 +1,5 @@
 package com.ustc.prlib.btcar;
 
-import android.R.integer;
 import android.app.ActionBar;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;

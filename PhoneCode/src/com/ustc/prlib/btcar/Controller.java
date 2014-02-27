@@ -1,6 +1,5 @@
 package com.ustc.prlib.btcar;
 
-import android.widget.ImageView;
 
 //计算速度和方向
 public class Controller {
