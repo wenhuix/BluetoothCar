@@ -34,7 +34,7 @@ volatile int triggers = 0;
 volatile float v = 0;  //Velocity
 int lastDrive = MID_DRIVE;
 int lastT = 0;  //last time
-int lastR = 0;  //last residual
+int totalR = 0; //total residual
 
 void setup() 
 { 
@@ -52,8 +52,11 @@ void loop() {
 
   printInfo( );
   calcuVelocity();
-  controlCar(getDrive(), getAngle());
-  delay(40);
+  //controlCar(getDrive(), getAngle());
+  int driveV = MID_DRIVE + (int)calcuDrive(2);
+  Serial.println(driveV);
+  controlCar(driveV, 90);
+  delay(50);
 } 
 
 //////////////////////////////////////
@@ -68,9 +71,10 @@ int getAngle(){
 
 ///////////////////////////////////////
 // PID controller
-float calcuDerive(float speed){
-  float residual = speed - v;
-  return 10 * residual + lastR; 
+float calcuDrive(float speed){
+  float r = speed - v;
+  totalR += r;
+  return 20 * r + 0.5 * totalR;
 }
 
 ///////////////////////////////////////
