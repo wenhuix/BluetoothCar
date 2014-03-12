@@ -3,31 +3,25 @@
 
 #define TURN_LEFT_MAX  117
 #define TURN_RIGHT_MIN 60
-//Direction
-Servo dir;
-//Driver
-Servo drive;
+
+Servo dir;//Direction servo
+Servo drive;//Driver motor
+
 int currentSpeed = 0;
 boolean flag = false;
-int readFromBT[2] = {0}; // speed  direction
-int iniSpeed = 1500;
-int iniDirection = 1465;
+int readFromBT[2] = {0};  // readFromBT[0] = speed  readFromBT[1] = direction
+int iniSpeed = 1500;      // motor speed = 0
+int iniDirection = 1465;  // direction = straight
+
+//20 triggers per cycle, the car can march about 37cm
+volatile int speedCount = 0;
+
 void setup() 
 { 
   Serial.begin(9600);//Serial port
-  dir.attach(9);
-  drive.attach(10);
-  
-  //Initialize the Car
-  dir.writeMicroseconds(iniSpeed); // set servo to mid-point
-  currentSpeed = iniSpeed;
-  delay(500);
-  
-  //Initialize the direction servo
-  dir.writeMicroseconds(iniDirection);  // set servo to mid-point
-  delay(500);
-  
-} 
+  attachInterrupt(0, countSpeed, CHANGE);
+  initializeServo();
+}
 
 void loop() {
   int dataCount = 0;
@@ -36,12 +30,11 @@ void loop() {
   {
     temp = (int)convertByteToChar(Serial.read());
     if(temp == 111){
-      flag = true;
+      flag = true; //receive right data package
       dataCount = 0;
       continue;
     }
-    if(flag)
-    {
+    if(flag){
       readFromBT[dataCount] = temp;
       dataCount = dataCount + 1;
       if(dataCount == 2){
@@ -54,6 +47,23 @@ void loop() {
   }
   controlCar();
 } 
+
+//interrupt function
+void countSpeed(){
+  speedCount++;
+}
+
+void initializeServo(){
+  dir.attach(9);
+  drive.attach(10);
+  //Initialize the drive motor
+  dir.writeMicroseconds(iniSpeed);     // set servo to mid-point
+  currentSpeed = iniSpeed;
+  delay(500);
+  //Initialize the direction servo
+  dir.writeMicroseconds(iniDirection);  // set servo to mid-point
+  delay(500);
+}
 
 char convertByteToChar(byte n) {
   if (n < 128) return n;
@@ -97,7 +107,9 @@ void controlCar()
   Serial.print("Speed: ");
   Serial.print(speed);
   Serial.print("Direction: ");
-  Serial.println(direction);
+  Serial.print(direction);
+  Serial.print("SpeedCount:");
+  Serial.println(speedCount);
   setDirection(direction);
   setSpeed(speed);
 }
