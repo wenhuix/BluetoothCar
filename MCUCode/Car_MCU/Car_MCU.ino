@@ -3,65 +3,63 @@
 
 #define TURN_LEFT_MAX  117
 #define TURN_RIGHT_MIN 60
+#define INI_SPEED 1465
+#define INI_ANGLE 1500
 
-Servo dir;//Direction servo
+Servo angle;//Rotation angle servo
 Servo drive;//Driver motor
 
-int currentSpeed = 0;
 boolean flag = false;
-int readFromBT[2] = {0};  // readFromBT[0] = speed  readFromBT[1] = direction
-int iniSpeed = 1500;      // motor speed = 0
-int iniDirection = 1465;  // direction = straight
+int lastSpeed = 0;
+char command[2] = {0};  // command[0] = speed; command[1] = angle
 
 //20 triggers per cycle, the car can march about 37cm
-volatile int speedCount = 0;
+volatile int triggers = 0;
+//volatile int speed;
 
 void setup() 
 { 
   Serial.begin(9600);//Serial port
-  attachInterrupt(0, countSpeed, CHANGE);
+  attachInterrupt(0, extInterrupt0, CHANGE);
   initializeServo();
 }
 
 void loop() {
-  int dataCount = 0;
-  int temp;
-  while(Serial.available())
-  {
-    temp = (int)convertByteToChar(Serial.read());
-    if(temp == 111){
-      flag = true; //receive right data package
-      dataCount = 0;
-      continue;
-    }
-    if(flag){
-      readFromBT[dataCount] = temp;
-      dataCount = dataCount + 1;
-      if(dataCount == 2){
-        //Serial.print("readFromBT: ");
-        //Serial.print(readFromBT[0]);
-        //Serial.println(readFromBT[1]);
-        flag = false;
-      }    
-    } 
-  }
+  
   controlCar();
 } 
 
 //interrupt function
-void countSpeed(){
-  speedCount++;
+void extInterrupt0(){
+  triggers++;
+}
+
+void serialEvent(){
+  if(Serial.available()>=3)
+  {
+    char temp[3] = {0};
+    Serial.readBytes(temp, 3);
+    Serial.print(" command0: ");
+    Serial.print(temp[0], DEC);
+    Serial.print(" command1: ");
+    Serial.println(temp[1], DEC);
+    if(temp[0] == 111){
+      command[0] = temp[1];
+      command[1] = temp[2];
+    }
+    while(Serial.read());
+  }
 }
 
 void initializeServo(){
-  dir.attach(9);
+  angle.attach(9);
   drive.attach(10);
+  lastSpeed = INI_SPEED;
   //Initialize the drive motor
-  dir.writeMicroseconds(iniSpeed);     // set servo to mid-point
-  currentSpeed = iniSpeed;
+  drive.writeMicroseconds(INI_SPEED);     // set servo to mid-point
   delay(500);
   //Initialize the direction servo
-  dir.writeMicroseconds(iniDirection);  // set servo to mid-point
+  angle.writeMicroseconds(INI_ANGLE);  // set servo to mid-point
   delay(500);
 }
 
@@ -70,46 +68,51 @@ char convertByteToChar(byte n) {
   return n - 256;
 }
 
-void setDirection(int val)
+void setAngle(int val)
 {
   if(val>TURN_LEFT_MAX){
     val = TURN_LEFT_MAX;
   }else if(val<TURN_RIGHT_MIN){
     val = TURN_RIGHT_MIN;
   }
-  dir.write(val);
+  angle.write(val);
 }
 
-void setSpeed(int val)
+void setDrive(int val)
 {
-  int speedResidual = currentSpeed - val;
-  if(speedResidual > 0){
-    for(int i=0; i<speedResidual; i++)
+  int residual = lastSpeed - val;
+  if(residual > 0){
+    for(int i=0; i<residual; i++)
     {
-      drive.writeMicroseconds(currentSpeed - i);
+      drive.writeMicroseconds(lastSpeed - i);
       delay(1);
     }
   }
-  if(speedResidual < 0){ 
-    for(int i=0; i<-speedResidual; i++)
+  if(residual < 0){ 
+    for(int i=0; i<-residual; i++)
     {
-      drive.writeMicroseconds(currentSpeed + i);
+      drive.writeMicroseconds(lastSpeed + i);
       delay(1);
     }
   }
-  currentSpeed = val;
+  lastSpeed = val;
 }
 
 void controlCar()
 {
-  int speed = iniSpeed + 2 * readFromBT[0];
-  int direction = 90 + readFromBT[1]/2;
+  int drive = INI_SPEED + 2 * command[0];
+  int angle = 90 + command[1]/2;
+
+  //printInfo(speed, direction);
+  setDrive(drive);
+  setAngle(angle);
+}
+
+void printInfo(int speed, int direction){
   Serial.print("Speed: ");
   Serial.print(speed);
   Serial.print("Direction: ");
   Serial.print(direction);
   Serial.print("SpeedCount:");
-  Serial.println(speedCount);
-  setDirection(direction);
-  setSpeed(speed);
+  Serial.println(triggers);
 }
