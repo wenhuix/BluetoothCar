@@ -4,7 +4,7 @@ package com.ustc.prlib.btcar;
 //计算速度和方向
 public class Controller {
 
-	private static final int MAX_VELOCITY = 125;
+	private static final int MAX_VELOCITY = 100;
 	private static final int MAX_ROTATION = 60;
 
 	/**
@@ -89,9 +89,9 @@ public class Controller {
 
 			}
 
-			// Scale the velocity to 0~125
+			// Scale the velocity
 			velocity = (velocity * MAX_VELOCITY / range);
-			// if |velocity| < 40, the car will not move, so rotation = 0;
+			// if |velocity| is little, the rotation = 0;
 			if (Math.abs(velocity) < MAX_VELOCITY / 5) {
 				rotation = 0;
 			}

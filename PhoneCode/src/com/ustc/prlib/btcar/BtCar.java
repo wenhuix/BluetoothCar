@@ -295,13 +295,14 @@ public class BtCar extends Activity {
 	private class controlThread extends Thread {
 		// Sent to the robot command
 		// high 4bit represent speed, low 4bit represent direction
-		private byte[] commandBuffer = new byte[3];
+		private byte[] buffer  = new byte[3];
+		private byte[] command = new byte[2];
 		float x1, y1, x2, y2;
 
 		public controlThread() {
-			commandBuffer[0] = 111;
-			commandBuffer[1] = 0;
-			commandBuffer[2] = 0;
+			buffer[0] = 111;
+			buffer[1] = 0;
+			buffer[2] = 0;
 		}
 
 		public void run() {
@@ -317,10 +318,10 @@ public class BtCar extends Activity {
 				if (context.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
 
 					if (imageView1 != null && imageView2 != null) {
-						commandBuffer[1] = (byte) controller.calculateV(
+						command[0] = (byte) controller.calculateV(
 								imageView1.getHeight(), imageView1.getWidth(),
 								x1, y1);
-						commandBuffer[2] = (byte) controller.calculateR(
+						command[1] = (byte) controller.calculateR(
 								imageView2.getHeight(), imageView2.getWidth(),
 								x2, y2);
 					}
@@ -330,20 +331,25 @@ public class BtCar extends Activity {
 						int[] result = controller.CalcuteVAndR(
 								imageView1.getHeight(), imageView1.getWidth(),
 								x1, y1);
-						commandBuffer[1] = (byte) result[0];
-						commandBuffer[2] = (byte) result[1];
+						command[0] = (byte) result[0];
+						command[1] = (byte) result[1];
 					}
 
 				}
 
-				// Log.d(TAG, "speed:" + commandBuffer[1] + " direction:"
-				// + commandBuffer[2]);
+				// Log.d(TAG, "speed:" + command[0] + " direction:"
+				// + command[1]);
 
 				// send the command through bluetooth
-				sendControlSignal(commandBuffer);
+				if (command[0] != buffer[1] || command[1] != buffer[2]) {
+					buffer[1] = command[0];
+					buffer[2] = command[1];
+					sendControlSignal(buffer);
+				}
+				
 
 				try {
-					Thread.sleep(20);
+					Thread.sleep(50);
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 					Log.e(TAG, "controlThread::sleep()");
