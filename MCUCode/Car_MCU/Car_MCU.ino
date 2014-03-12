@@ -1,21 +1,39 @@
+/*
+* Used to control a bluetooth car
+* 
+* For more information and the latest version please refer to
+*    https://github.com/wenhuix/BTCar/
+* Author: wenhuix
+* Email: xiangwenhui@gamil.com
+* Log:
+*  2014-3-12 modified
+*/
+
 #include <Servo.h> 
 #include <Wire.h>
 
 #define TURN_LEFT_MAX  115
 #define TURN_RIGHT_MIN 65
 #define MID_DRIVE 1500
-#define MID_ANGLE 1500
+#define MID_ANGLE 1465
 
 Servo angle;//Rotation angle servo
 Servo drive;//Driver motor
 
-boolean flag = false;
-int lastDrive = MID_DRIVE;
-char command[2] = {0};  // command[0] = speed; command[1] = angle
+/* used to store command from serial port
+* command[0] = speed; command[1] = angle
+* the range of command value from Android phone:
+* speed = -100~100  angle = -60 ~ 60
+*/
+char command[2] = {0};  
 
-//20 triggers per cycle, the car can march about 37cm
+/*
+* 20 triggers per cycle, the car can march about 37cm
+*/ 
 volatile int triggers = 0;
-int speed;
+volatile float v = 0;  //Velocity
+int lastDrive = MID_DRIVE;
+int lastT = 0;
 
 void setup() 
 { 
@@ -27,18 +45,40 @@ void setup()
   
   attachInterrupt(0, extInterrupt0, CHANGE);
 }
-
+//////////////////////////////////////
+// main()
 void loop() {
-  int drive = MID_DRIVE + 2 * command[0];
-  int angle = 90 + command[1]/2;
-  controlCar(drive, angle);
+
+  printInfo( );
+  calcuVelocity();
+  controlCar(getDrive(), getAngle());
+  delay(50)
 } 
+
+//////////////////////////////////////
+// convert command value to control value
+int getDrive(){
+  return MID_DRIVE + command[0];
+}
+
+int getAngle(){
+  return 90 + command[1]/2;
+}
+
+///////////////////////////////////////
+// calculate car speed/Velocity
+// return: velocity (m/s)
+void calcuVelocity(){
+  int t = millis() - lastT;
+  v = triggers * 0.37 * 50 / t;
+  lastT = millis();
+  triggers = 0;
+}
 
 ///////////////////////////////////////
 // send rotation angle and drive value
 void controlCar(int drive, int angle)
 {
-  //printInfo(speed, direction);
   setDrive(drive);
   setAngle(angle);
 }
@@ -53,15 +93,11 @@ void extInterrupt0(){
 ////////////////////////////////////////
 //receive serial prot data
 void serialEvent(){
-  if(Serial.available()>=3)
-  {
-    char temp[3] = {0};
-    if(temp[0] == 111){
-      command[0] = temp[1];
-      command[1] = temp[2];
-    }
+  if(Serial.available()>=3){
+    if(Serial.read() == 111);
+      Serial.readBytes(command, 2);
     //discard the rest of the data
-    while(Serial.read());
+    //while(Serial.read());
   }
 }
 
@@ -113,7 +149,7 @@ void setDrive(int val)
   if(!isreverse && r >= 0)                mode = 1; //speed up(forward); slow down(backward)
   else if(!isreverse && r < 0)            mode = 2; //slow down(forward); speed up(backward)
   else if(isreverse && val >= MID_DRIVE)  mode = 3; //from backword to forward
-  else(isreverse && val < MID_DREIVE)     mode = 4; //from forward to backword
+  else                                    mode = 4; //from forward to backword
   
   switch(mode){
     case 1:
@@ -144,13 +180,19 @@ void setDrive(int val)
   lastDrive = val;
 }
 
-
-
-void printInfo(int speed, int direction){
-  Serial.print("Speed: ");
-  Serial.print(speed);
-  Serial.print("Direction: ");
-  Serial.print(direction);
-  Serial.print("SpeedCount:");
+//////////////////////////////////////
+// print some information
+void printInfo(){
+  Serial.print("com:");
+  Serial.print(command[0], DEC);
+  Serial.print(" ");
+  Serial.print(command[1], DEC);
+  Serial.print(" der:");
+  Serial.print(getDrive());
+  Serial.print(" ang:");
+  Serial.print(getAngle());
+  Serial.print(" trig:");
+  Serial.print(" V:");
+  Serial.print(v);
   Serial.println(triggers);
 }
