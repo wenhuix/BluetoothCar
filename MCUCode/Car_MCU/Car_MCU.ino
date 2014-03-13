@@ -14,6 +14,8 @@
 
 #define TURN_LEFT_MAX  115
 #define TURN_RIGHT_MIN 65
+#define MAX_DRIVE 1700  //maximun drive value
+#define MIN_DRIVE 1300  //minimun drive value
 #define MID_DRIVE 1500
 #define MID_ANGLE 1465
 
@@ -28,13 +30,13 @@ Servo drive;//Driver motor
 char command[2] = {0};  
 
 /*
-* 20 triggers per cycle, the car can march about 37cm
+* 100 triggers per cycle, the car can march about 37cm
 */ 
 volatile int triggers = 0;
 volatile float v = 0;  //Velocity
 int lastDrive = MID_DRIVE;
 int lastT = 0;  //last time
-int totalR = 0; //total residual
+float totalR = 0; //total residual
 
 void setup() 
 { 
@@ -50,12 +52,14 @@ void setup()
 // main()
 void loop() {
 
-  printInfo( );
+  
   calcuVelocity();
   //controlCar(getDrive(), getAngle());
-  int driveV = MID_DRIVE + (int)calcuDrive(2);
-  Serial.println(driveV);
-  controlCar(driveV, 90);
+  int driveV = MID_DRIVE + (int)calcuDrive(1);
+  //drive.writeMicroseconds(1700);
+  controlCar(driveV, getAngle());
+  Serial.print(driveV);
+  printInfo( );
   delay(50);
 } 
 
@@ -74,17 +78,23 @@ int getAngle(){
 float calcuDrive(float speed){
   float r = speed - v;
   totalR += r;
-  return 20 * r + 0.5 * totalR;
+  Serial.print("totalR ");
+  Serial.print(totalR);
+  Serial.print(" ");
+  Serial.print(r);
+  Serial.print(" ");
+  return 50 * r + 5 * totalR + r / 0.1;
 }
 
 ///////////////////////////////////////
 // calculate car speed/Velocity
 // return: velocity (m/s)
+// v = (tirggers * 0.37 * 1000) / (t*20*5)
 void calcuVelocity(){
   int t = millis() - lastT;
-  //if(t < 50) return;
+  if(t < 50) return;
   
-  v = triggers * 0.37 * 50 / t;
+  v = triggers * 6.1 / t;
   lastT = millis();
   triggers = 0;
 }
@@ -154,42 +164,52 @@ void setAngle(int val)
 */
 void setDrive(int val)
 {
+  if(val > MAX_DRIVE)
+    val = MAX_DRIVE;
+  if(val < MIN_DRIVE)
+    val = MIN_DRIVE;
+  //Serial.println(val);
   boolean isreverse = false;
-  int mode;
-  int r = val - lastDrive;
+//  int mode;
+//  int r = val - lastDrive;
   if((lastDrive - MID_DRIVE) * (val - MID_DRIVE) < 0)
     isreverse = true;
   
-  if(!isreverse && r >= 0)                mode = 1; //speed up(forward); slow down(backward)
-  else if(!isreverse && r < 0)            mode = 2; //slow down(forward); speed up(backward)
-  else if(isreverse && val >= MID_DRIVE)  mode = 3; //from backword to forward
-  else                                    mode = 4; //from forward to backword
-  
-  switch(mode){
-    case 1:
-      for(int i=0; i<r; i++){  
-        drive.writeMicroseconds(lastDrive + i);
-        delay(1); 
-      }
-      break;
-    case 2:
-      for(int i=0; i<-r; i++){  
-        drive.writeMicroseconds(lastDrive - i);
-        delay(1); 
-      }
-      break;
-    case 3:
-      for(int i=0; i<val - MID_DRIVE; i++){
-        drive.writeMicroseconds(MID_DRIVE + i);
-        delay(1); 
-      }
-      break;
-    case 4:
-      for(int i=0; i<MID_DRIVE - val; i++){
-        drive.writeMicroseconds(MID_DRIVE - i);
-        delay(1); 
-      }
+//  if(!isreverse && r >= 0)                mode = 1; //speed up(forward); slow down(backward)
+//  else if(!isreverse && r < 0)            mode = 2; //slow down(forward); speed up(backward)
+//  else if(isreverse && val >= MID_DRIVE)  mode = 3; //from backword to forward
+//  else                                    mode = 4; //from forward to backword
+//  
+//  switch(mode){
+//    case 1:
+//      for(int i=0; i<r; i++){  
+//        drive.writeMicroseconds(lastDrive + i);
+//        delay(1); 
+//      }
+//      break;
+//    case 2:
+//      for(int i=0; i<-r; i++){  
+//        drive.writeMicroseconds(lastDrive - i);
+//        delay(1); 
+//      }
+//      break;
+//    case 3:
+//      for(int i=0; i<val - MID_DRIVE; i++){
+//        drive.writeMicroseconds(MID_DRIVE + i);
+//        delay(1); 
+//      }
+//      break;
+//    case 4:
+//      for(int i=0; i<MID_DRIVE - val; i++){
+//        drive.writeMicroseconds(MID_DRIVE - i);
+//        delay(1); 
+//      }
+//  }
+  if(isreverse){
+    drive.writeMicroseconds(MID_DRIVE);
+    delay(5);
   }
+  drive.writeMicroseconds(val);
   //keep the last value
   lastDrive = val;
 }
