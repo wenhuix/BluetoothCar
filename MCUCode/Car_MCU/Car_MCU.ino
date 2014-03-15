@@ -14,10 +14,11 @@
 
 #define TURN_LEFT_MAX  115
 #define TURN_RIGHT_MIN 65
-#define MAX_DRIVE 1700  //maximun drive value
-#define MIN_DRIVE 1300  //minimun drive value
+#define MAX_DRIVE 1750  //maximun drive value
+#define MIN_DRIVE 1250  //minimun drive value
+
 #define MID_DRIVE 1500
-#define MID_ANGLE 1465
+#define MID_ANGLE 1500
 
 Servo angle;//Rotation angle servo
 Servo drive;//Driver motor
@@ -50,16 +51,24 @@ void setup()
 }
 //////////////////////////////////////
 // main()
+float speed = 0.2;
+int driveV = 0;
 void loop() {
-
   
   calcuVelocity();
   //controlCar(getDrive(), getAngle());
-  int driveV = MID_DRIVE + (int)calcuDrive(1);
-  //drive.writeMicroseconds(1700);
+  if(speed>0){
+    driveV = MID_DRIVE + 100 + (int)calcuDrive(speed);
+    driveV = min(driveV, MAX_DRIVE);
+  }else{
+    driveV = MID_DRIVE - 100 + (int)calcuDrive(speed);
+    driveV = max(driveV, MIN_DRIVE);
+  }
+  //drive.writeMicroseconds(1750);
   controlCar(driveV, getAngle());
-  Serial.print(driveV);
-  printInfo( );
+  Serial.print(" ");
+  Serial.println(driveV);
+  //printInfo( );
   delay(50);
 } 
 
@@ -78,12 +87,13 @@ int getAngle(){
 float calcuDrive(float speed){
   float r = speed - v;
   totalR += r;
-  Serial.print("totalR ");
   Serial.print(totalR);
   Serial.print(" ");
   Serial.print(r);
   Serial.print(" ");
-  return 50 * r + 5 * totalR + r / 0.1;
+  Serial.print(v);
+  Serial.print(" ");
+  return 100 * r + 5 * totalR + 20 * r;
 }
 
 ///////////////////////////////////////
@@ -153,61 +163,27 @@ void setAngle(int val)
 * 2000us is fully clockwise, and 1500us is in the middle.
 *
 * In this DC motor controller, value < 1500 is backward
-* value > 1500 is forward. 
+* value > 1500 is forward. Actually, the car will move until
+* value > 1600 or value < 1400
 * the power in proportion to |value-1500|
 *
 * I don't want to add the following comment, but there is no choice.
 * It's depends on DC motor comtorller.
-* 1) the value should add slowly; 
-* 2) if lastDrive < 1500 and val > 1500 this time, it should be
+* 1) if the direction is reversed, it should be
 *    wait for a second (depends on DC motor controller)
 */
 void setDrive(int val)
 {
-  if(val > MAX_DRIVE)
-    val = MAX_DRIVE;
-  if(val < MIN_DRIVE)
-    val = MIN_DRIVE;
   //Serial.println(val);
   boolean isreverse = false;
-//  int mode;
-//  int r = val - lastDrive;
-  if((lastDrive - MID_DRIVE) * (val - MID_DRIVE) < 0)
+  //long Data type is very important! Don't touch it!
+  if((long)(lastDrive - MID_DRIVE) * (long)(val - MID_DRIVE) < 0){
     isreverse = true;
-  
-//  if(!isreverse && r >= 0)                mode = 1; //speed up(forward); slow down(backward)
-//  else if(!isreverse && r < 0)            mode = 2; //slow down(forward); speed up(backward)
-//  else if(isreverse && val >= MID_DRIVE)  mode = 3; //from backword to forward
-//  else                                    mode = 4; //from forward to backword
-//  
-//  switch(mode){
-//    case 1:
-//      for(int i=0; i<r; i++){  
-//        drive.writeMicroseconds(lastDrive + i);
-//        delay(1); 
-//      }
-//      break;
-//    case 2:
-//      for(int i=0; i<-r; i++){  
-//        drive.writeMicroseconds(lastDrive - i);
-//        delay(1); 
-//      }
-//      break;
-//    case 3:
-//      for(int i=0; i<val - MID_DRIVE; i++){
-//        drive.writeMicroseconds(MID_DRIVE + i);
-//        delay(1); 
-//      }
-//      break;
-//    case 4:
-//      for(int i=0; i<MID_DRIVE - val; i++){
-//        drive.writeMicroseconds(MID_DRIVE - i);
-//        delay(1); 
-//      }
-//  }
+  }
   if(isreverse){
     drive.writeMicroseconds(MID_DRIVE);
     delay(5);
+    //Serial.print("reverse!");
   }
   drive.writeMicroseconds(val);
   //keep the last value
