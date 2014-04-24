@@ -15,7 +15,7 @@
 -->
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:id="@+id/connect_scan"
-          android:icon="@android:drawable/ic_menu_search"
-          android:title="@string/connect"
-          android:showAsAction="ifRoom|withText" />
+          android:icon="@drawable/ic_action_bluetooth_searching"
+          android:title="@string/bluetooth_search"
+          android:showAsAction="always" />
 </menu>

@@ -4,96 +4,124 @@
 * For more information and the latest version please refer to
 *    https://github.com/wenhuix/BTCar/
 * Author: wenhuix
-* Email: xiangwenhui@gamil.com
+* Email: wenhuix@foxmail.com
 * Log:
 *  2014-3-12 modified
+*  2014-4-14 modified
 */
 
 #include <Servo.h> 
 #include <Wire.h>
 
-#define TURN_LEFT_MAX  115
-#define TURN_RIGHT_MIN 65
+#define TURN_LEFT_MAX  130
+#define TURN_RIGHT_MIN 50
 #define MAX_DRIVE 1750  //maximun drive value
 #define MIN_DRIVE 1250  //minimun drive value
 
 #define MID_DRIVE 1500
 #define MID_ANGLE 1500
 
-Servo angle;//Rotation angle servo
-Servo drive;//Driver motor
+Servo angleServo;//Rotation angle servo
+Servo driveMotor;//Driver motor
 
 /* used to store command from serial port
-* command[0] = speed; command[1] = angle
 * the range of command value from Android phone:
-* speed = -100~100  angle = -60 ~ 60
+* speed = -100~100 scale:  1 = 0.01m/s  
+% angle = -60 ~ 60
 */
-char command[2] = {0};  
+char speedVolume = 0;
+char angleVolume = 0;
 
 /*
 * 100 triggers per cycle, the car can march about 37cm
 */ 
 volatile int triggers = 0;
 volatile float v = 0;  //Velocity
+float vBuffer[4] = {0};
 int lastDrive = MID_DRIVE;
 int lastT = 0;  //last time
-float totalR = 0; //total residual
+float e[3] = {0}; //error e(t-2),e(t-1),e(t)
+
+// PID controller parameters
+#define KP 195
+#define KI 5
+#define KD 1.25
 
 void setup() 
 { 
   Serial.begin(9600);//Serial port
+  Serial.println();
+  Serial.println(KP);
 
-  angle.attach(9);
-  drive.attach(10);
+  angleServo.attach(9);
+  driveMotor.attach(10);
   initializeServo();
   
   attachInterrupt(0, extInterrupt0, CHANGE);
 }
 //////////////////////////////////////
 // main()
-float speed = 0.2;
-int driveV = 0;
+float speed = 0;//desired speed
+float angle = 0;//desired angle
+int driveV = 0; //DC motor input signal
+int u = 0;      //Output of PID controller
 void loop() {
   
   calcuVelocity();
-  //controlCar(getDrive(), getAngle());
-  if(speed>0){
-    driveV = MID_DRIVE + 100 + (int)calcuDrive(speed);
-    driveV = min(driveV, MAX_DRIVE);
-  }else{
-    driveV = MID_DRIVE - 100 + (int)calcuDrive(speed);
-    driveV = max(driveV, MIN_DRIVE);
+  speed = getSpeedValue();
+  angle = getAngleValue();
+  
+  if(speed==0){
+    driveV = MID_DRIVE;
+    u = 0;
+  } else {
+    //controlCar(getDrive(), getAngle());
+    u = u + (int)speedPidController(speed);
+    
+    if(u>0){
+      driveV = MID_DRIVE + 50 + u;
+      driveV = min(driveV, MAX_DRIVE);
+    }else if(u<0){
+      driveV = MID_DRIVE - 50 + u;
+      driveV = max(driveV, MIN_DRIVE);
+    }
   }
-  //drive.writeMicroseconds(1750);
-  controlCar(driveV, getAngle());
-  Serial.print(" ");
-  Serial.println(driveV);
+  
+  controlCar(driveV, angle);
+  
+  //Serial.print(" ");
+  //Serial.println(driveV);
   //printInfo( );
-  delay(50);
+  Serial.println(v);
+  //delay(10);
 } 
 
 //////////////////////////////////////
 // convert command value to control value
-int getDrive(){
-  return MID_DRIVE + command[0];
+float getSpeedValue(){
+  return speedVolume * 0.01;
 }
 
-int getAngle(){
-  return 90 + command[1]/2;
+int getAngleValue(){
+  return 90 + angleVolume;
 }
 
 ///////////////////////////////////////
-// PID controller
-float calcuDrive(float speed){
-  float r = speed - v;
-  totalR += r;
-  Serial.print(totalR);
-  Serial.print(" ");
-  Serial.print(r);
-  Serial.print(" ");
-  Serial.print(v);
-  Serial.print(" ");
-  return 100 * r + 5 * totalR + 20 * r;
+// PID speed controller
+// 增量式PID控制算法
+float speedPidController(float speed){
+  
+  //e(t-2),e(t-1),e(t)
+  e[0] = e[1];
+  e[1] = e[2];
+  if (speed<0)
+    e[2] = speed + v;
+  else if(speed>0)
+    e[2] = speed - v;
+
+  //Delta {u_t} = {K_P}({e_t} - {e_{t - 1}}) + {K_I}{e_t} + {K_D}({e_t} - 2{e_{t - 1}} + {e_{t - 2}})
+  // = ({K_p} + {K_I} + {K_D}){e_t} - ({K_p} + 2{K_D}){e_{t - 1}} + {K_D}{e_{t - 2}}
+  return (KP + KI + KD) * e[2] - (KP + 2 * KD) * e[1] + KD * e[0];
 }
 
 ///////////////////////////////////////
@@ -102,9 +130,19 @@ float calcuDrive(float speed){
 // v = (tirggers * 0.37 * 1000) / (t*20*5)
 void calcuVelocity(){
   int t = millis() - lastT;
-  if(t < 50) return;
-  
-  v = triggers * 6.1 / t;
+  while(t < 50) {
+    delay(1);
+    t = t + 1;
+  }
+  //Add filter
+  vBuffer[0] = vBuffer[1];
+  vBuffer[1] = vBuffer[2];
+  vBuffer[2] = vBuffer[3];  
+  vBuffer[3] = triggers * 6.1 / t;
+  //v = (vBuffer[0] + vBuffer[1] + vBuffer[2])/3 * 0.8 + vBuffer[3] * 0.2;
+  //v = (vBuffer[0] + vBuffer[1] + vBuffer[2] + vBuffer[3])/4;
+  v = (vBuffer[1] + vBuffer[2] + vBuffer[3])/3;
+  //v = vBuffer[3];
   lastT = millis();
   triggers = 0;
 }
@@ -129,7 +167,8 @@ void extInterrupt0(){
 void serialEvent(){
   if(Serial.available()>=3){
     if(Serial.read() == 111);
-      Serial.readBytes(command, 2);
+      speedVolume = Serial.read();
+      angleVolume = Serial.read();
     //discard the rest of the data
     //while(Serial.read());
   }
@@ -138,9 +177,9 @@ void serialEvent(){
 ////////////////////////////////////////
 // Initialize the two servo
 void initializeServo(){
-  drive.writeMicroseconds(MID_DRIVE);
+  driveMotor.writeMicroseconds(MID_DRIVE);
   delay(500); //DON'T REMOVE IT!!!!
-  angle.writeMicroseconds(MID_ANGLE);
+  angleServo.writeMicroseconds(MID_ANGLE);
   delay(500); //DON'T REMOVE IT!!!!
 }
 
@@ -154,7 +193,7 @@ void setAngle(int val)
   }else if(val<TURN_RIGHT_MIN){
     val = TURN_RIGHT_MIN;
   }
-  angle.write(val);
+  angleServo.write(val);
 }
 
 /////////////////////////////////////////
@@ -181,11 +220,11 @@ void setDrive(int val)
     isreverse = true;
   }
   if(isreverse){
-    drive.writeMicroseconds(MID_DRIVE);
+    driveMotor.writeMicroseconds(MID_DRIVE);
     delay(5);
     //Serial.print("reverse!");
   }
-  drive.writeMicroseconds(val);
+  driveMotor.writeMicroseconds(val);
   //keep the last value
   lastDrive = val;
 }
@@ -194,13 +233,13 @@ void setDrive(int val)
 // print some information
 void printInfo(){
   Serial.print("com:");
-  Serial.print(command[0], DEC);
+  Serial.print(speedVolume, DEC);
   Serial.print(" ");
-  Serial.print(command[1], DEC);
+  Serial.print(angleVolume, DEC);
   Serial.print(" der:");
-  Serial.print(getDrive());
+  Serial.print(getSpeedValue());
   Serial.print(" ang:");
-  Serial.print(getAngle());
+  Serial.print(getAngleValue());
   Serial.print(" trig:");
   Serial.print(triggers);
   Serial.print(" V:");

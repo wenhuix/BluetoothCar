@@ -14,9 +14,14 @@
  * limitations under the License.
  */
 
-package com.ustc.prlib.btcar;
+package com.ustc.prlib.util.bluetooth;
 
 import java.util.Set;
+
+import com.ustc.prlib.btcar.R;
+import com.ustc.prlib.btcar.R.id;
+import com.ustc.prlib.btcar.R.layout;
+import com.ustc.prlib.btcar.R.string;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;

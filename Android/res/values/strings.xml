@@ -20,5 +20,9 @@
     <string name="button_scan">查找设备</string>
     
     <string name="connect">连接到小车</string>
+    <string name="camera">用摄像头导航</string>
+    <string name="bluetooth_search">搜索蓝牙</string>
+    
+    <string name="dialog_auto_drive">确定切换到自动避障？</string>
 
 </resources>

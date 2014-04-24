@@ -6,11 +6,14 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.PointF;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.os.PowerManager;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -18,12 +21,16 @@ import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnTouchListener;
+import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.Toast;
 
-public class BtCar extends Activity {
+import com.ustc.prlib.util.bluetooth.BluetoothService;
+import com.ustc.prlib.util.bluetooth.DeviceListActivity;
 
-	private static final String TAG = "Robot";
+public class BtCarActivity extends Activity{
+
+	private static final String TAG = "BTCar";
 	private static final boolean D = true;
 
 	// Message types sent from the BluetoothService Handler
@@ -43,16 +50,14 @@ public class BtCar extends Activity {
 
 	// Name of the connected device
 	private String mConnectedDeviceName = null;
-	// Array adapter for the conversation thread
-	// private ArrayAdapter<String> mConversationArrayAdapter;
 	// Local Bluetooth adapter
 	private BluetoothAdapter mBluetoothAdapter = null;
 	// Member object for the services
 	private BluetoothService mBTService = null;
+	
 
 	// Touch Point
 	private PointF touchPoint1 = new PointF(0, 0);
-
 	private PointF touchPoint2 = new PointF(0, 0);
 
 	private Thread controlThread = null;
@@ -63,7 +68,9 @@ public class BtCar extends Activity {
 	private Context context = this;
 
 	private Controller controller = new Controller();
-
+	
+	protected PowerManager.WakeLock mWakeLock;
+	
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -97,6 +104,9 @@ public class BtCar extends Activity {
 			finish();
 			return;
 		}
+        
+		// Keep screen on
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
 	}
 
@@ -120,6 +130,7 @@ public class BtCar extends Activity {
 				mBTService = new BluetoothService(this, mHandler);
 			}
 		}
+		
 
 	}
 
@@ -207,7 +218,6 @@ public class BtCar extends Activity {
 			switch (event.getAction()) {
 			// ´¥ÃþÆÁÄ»Ê±¿Ì
 			case MotionEvent.ACTION_DOWN:
-				// Log.d(TAG, " x:" + x + " y:" + y);
 				synchronized (this) {
 					touchPoint1.x = x;
 					touchPoint1.y = y;
@@ -215,7 +225,6 @@ public class BtCar extends Activity {
 				break;
 			// ´¥Ãþ²¢ÒÆ¶¯Ê±¿Ì
 			case MotionEvent.ACTION_MOVE:
-				// Log.d(TAG, " x1:" + x + " y1:" + y);
 				synchronized (this) {
 					touchPoint1.x = x;
 					touchPoint1.y = y;
@@ -223,7 +232,6 @@ public class BtCar extends Activity {
 				break;
 			// ÖÕÖ¹´¥ÃþÊ±¿Ì
 			case MotionEvent.ACTION_UP:
-				// Log.d(TAG, " x:" + x + " y:" + y);
 				synchronized (this) {
 					touchPoint1.x = 0;
 					touchPoint1.y = 0;
@@ -246,7 +254,6 @@ public class BtCar extends Activity {
 			switch (event.getAction()) {
 			// ´¥ÃþÆÁÄ»Ê±¿Ì
 			case MotionEvent.ACTION_DOWN:
-				// Log.d(TAG, " x:" + x + " y:" + y);
 				synchronized (this) {
 					touchPoint2.x = x;
 					touchPoint2.y = y;
@@ -254,7 +261,6 @@ public class BtCar extends Activity {
 				break;
 			// ´¥Ãþ²¢ÒÆ¶¯Ê±¿Ì
 			case MotionEvent.ACTION_MOVE:
-				// Log.d(TAG, " x2:" + x + " y2:" + y);
 				synchronized (this) {
 					touchPoint2.x = x;
 					touchPoint2.y = y;
@@ -262,7 +268,6 @@ public class BtCar extends Activity {
 				break;
 			// ÖÕÖ¹´¥ÃþÊ±¿Ì
 			case MotionEvent.ACTION_UP:
-				// Log.d(TAG, " x:" + x + " y:" + y);
 				synchronized (this) {
 					touchPoint2.x = 0;
 					touchPoint2.y = 0;
@@ -293,14 +298,13 @@ public class BtCar extends Activity {
 	}
 
 	private class controlThread extends Thread {
-		// Sent to the robot command
-		// high 4bit represent speed, low 4bit represent direction
+		// Sent control command
 		private byte[] buffer  = new byte[3];
-		private byte[] command = new byte[2];
+		private byte speed=0, rotation=0;
 		float x1, y1, x2, y2;
 
 		public controlThread() {
-			buffer[0] = 111;
+			buffer[0] = 111;  //Start of the package
 			buffer[1] = 0;
 			buffer[2] = 0;
 		}
@@ -318,10 +322,10 @@ public class BtCar extends Activity {
 				if (context.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
 
 					if (imageView1 != null && imageView2 != null) {
-						command[0] = (byte) controller.calculateV(
+						speed    = (byte) controller.calculateV(
 								imageView1.getHeight(), imageView1.getWidth(),
 								x1, y1);
-						command[1] = (byte) controller.calculateR(
+						rotation = (byte) controller.calculateR(
 								imageView2.getHeight(), imageView2.getWidth(),
 								x2, y2);
 					}
@@ -331,23 +335,22 @@ public class BtCar extends Activity {
 						int[] result = controller.CalcuteVAndR(
 								imageView1.getHeight(), imageView1.getWidth(),
 								x1, y1);
-						command[0] = (byte) result[0];
-						command[1] = (byte) result[1];
+						speed    = (byte) result[0];
+						rotation = (byte) result[1];
 					}
 
 				}
 
-				// Log.d(TAG, "speed:" + command[0] + " direction:"
-				// + command[1]);
-
 				// send the command through bluetooth
-				if (command[0] != buffer[1] || command[1] != buffer[2]) {
-					buffer[1] = command[0];
-					buffer[2] = command[1];
+				if (speed != buffer[1] || rotation != buffer[2]) {
+					buffer[1] = speed;
+					buffer[2] = rotation;
 					sendControlSignal(buffer);
 				}
 				
-
+				Log.d(TAG, "speed:" + speed + " direction:"
+				 + rotation);
+				
 				try {
 					Thread.sleep(50);
 				} catch (InterruptedException e) {
@@ -465,7 +468,7 @@ public class BtCar extends Activity {
 	public boolean onCreateOptionsMenu(Menu menu) {
 		MenuInflater inflater = getMenuInflater();
 		inflater.inflate(R.menu.option_menu, menu);
-		return true;
+		return super.onCreateOptionsMenu(menu);
 	}
 
 	@Override
@@ -478,8 +481,10 @@ public class BtCar extends Activity {
 			serverIntent = new Intent(this, DeviceListActivity.class);
 			startActivityForResult(serverIntent, REQUEST_CONNECT_DEVICE);
 			return true;
+			
 		}
 		return false;
 	}
+	
 
 }

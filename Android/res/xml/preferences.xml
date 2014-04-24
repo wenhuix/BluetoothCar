@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <ListPreference
+        android:dialogTitle="选择最大速度"
+        android:entries="@array/maxspeed_preference"
+        android:entryValues="@array/maxspeedvalue_preference"
+        android:key="maxspeed_preference"
+        android:summary="设置小车运动的最大速度"
+        android:title="最大速度" />
+    
+</PreferenceScreen>
