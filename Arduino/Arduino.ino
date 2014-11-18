@@ -2,12 +2,13 @@
 * Used to control a bluetooth car
 * 
 * For more information and the latest version please refer to
-*    https://github.com/wenhuix/BTCar/
+*    https://github.com/wenhuix/BluetoothCar
 * Author: wenhuix
-* Email: wenhuix@foxmail.com
+* Email: littlewest@foxmail.com
 * Log:
-*  2014-3-12 modified
-*  2014-4-14 modified
+*  2014-03-12 modified
+*  2014-04-14 modified
+*  2014-11-18 remove useless code
 */
 
 #include <Servo.h> 
@@ -47,11 +48,14 @@ float e[3] = {0}; //error e(t-2),e(t-1),e(t)
 #define KI 5
 #define KD 1.25
 
+float speed = 0;//desired speed
+float angle = 0;//desired angle
+int driveV = 0; //DC motor input signal
+int u = 0;      //Output of PID controller
+
 void setup() 
 { 
   Serial.begin(9600);//Serial port
-  Serial.println();
-  Serial.println(KP);
 
   angleServo.attach(9);
   driveMotor.attach(10);
@@ -61,10 +65,7 @@ void setup()
 }
 //////////////////////////////////////
 // main()
-float speed = 0;//desired speed
-float angle = 0;//desired angle
-int driveV = 0; //DC motor input signal
-int u = 0;      //Output of PID controller
+
 void loop() {
   
   calcuVelocity();
@@ -75,7 +76,6 @@ void loop() {
     driveV = MID_DRIVE;
     u = 0;
   } else {
-    //controlCar(getDrive(), getAngle());
     u = u + (int)speedPidController(speed);
     
     if(u>0){
@@ -86,14 +86,7 @@ void loop() {
       driveV = max(driveV, MIN_DRIVE);
     }
   }
-  
   controlCar(driveV, angle);
-  
-  //Serial.print(" ");
-  //Serial.println(driveV);
-  //printInfo( );
-  Serial.println(v);
-  //delay(10);
 } 
 
 //////////////////////////////////////
@@ -142,7 +135,6 @@ void calcuVelocity(){
   //v = (vBuffer[0] + vBuffer[1] + vBuffer[2])/3 * 0.8 + vBuffer[3] * 0.2;
   //v = (vBuffer[0] + vBuffer[1] + vBuffer[2] + vBuffer[3])/4;
   v = (vBuffer[1] + vBuffer[2] + vBuffer[3])/3;
-  //v = vBuffer[3];
   lastT = millis();
   triggers = 0;
 }
@@ -165,12 +157,13 @@ void extInterrupt0(){
 ////////////////////////////////////////
 //receive serial prot data
 void serialEvent(){
-  if(Serial.available()>=3){
-    if(Serial.read() == 111);
+  while(Serial.available()>=3)
+  {
+    if(Serial.read() == 111)
+    {
       speedVolume = Serial.read();
       angleVolume = Serial.read();
-    //discard the rest of the data
-    //while(Serial.read());
+    }
   }
 }
 
@@ -222,26 +215,8 @@ void setDrive(int val)
   if(isreverse){
     driveMotor.writeMicroseconds(MID_DRIVE);
     delay(5);
-    //Serial.print("reverse!");
   }
   driveMotor.writeMicroseconds(val);
   //keep the last value
   lastDrive = val;
-}
-
-//////////////////////////////////////
-// print some information
-void printInfo(){
-  Serial.print("com:");
-  Serial.print(speedVolume, DEC);
-  Serial.print(" ");
-  Serial.print(angleVolume, DEC);
-  Serial.print(" der:");
-  Serial.print(getSpeedValue());
-  Serial.print(" ang:");
-  Serial.print(getAngleValue());
-  Serial.print(" trig:");
-  Serial.print(triggers);
-  Serial.print(" V:");
-  Serial.println(v);
 }

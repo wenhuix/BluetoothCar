@@ -6,14 +6,12 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.PointF;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.PowerManager;
-import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -130,8 +128,6 @@ public class BtCarActivity extends Activity{
 				mBTService = new BluetoothService(this, mHandler);
 			}
 		}
-		
-
 	}
 
 	@Override
@@ -287,14 +283,6 @@ public class BtCarActivity extends Activity{
 		}
 
 		mBTService.write(command);
-	}
-
-	private void setup() {
-		Log.d(TAG, "setup()");
-
-		// Initialize the BluetoothService to perform bluetooth connections
-		mBTService = new BluetoothService(this, mHandler);
-
 	}
 
 	private class controlThread extends Thread {
